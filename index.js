@@ -24,8 +24,16 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     await client.connect();
-    const db = client.db("mediquueue");
+    const db = client.db("mediqueue");
     const tutorsCollection = db.collection("tutors");
+
+    app.post('/tutors', async (req, res) => {
+      const tutor = req.body;
+      console.log('req-tutor:',tutor);
+      const result = await tutorsCollection.insertOne(tutor);
+      console.log('result:',result);
+      res.send(result);
+    });
 
     app.get('/tutors', async (req, res) => {
       const tutors = await tutorsCollection.find().toArray();
