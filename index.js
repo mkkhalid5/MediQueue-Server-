@@ -10,7 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 //mongodb connection
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const uri = process.env.MONGODB_URI;
 
 const client = new MongoClient(uri, {
@@ -35,10 +35,32 @@ async function run() {
       res.send(result);
     });
 
+    app.get('/tutorsAvailable', async (req, res) => {
+      const tutors = await tutorsCollection.aggregate([
+        {
+            $limit: 6
+        }
+      ]).toArray();
+      res.send(tutors);
+    });
+
     app.get('/tutors', async (req, res) => {
       const tutors = await tutorsCollection.find().toArray();
       res.send(tutors);
     });
+
+    app.get('/tutors/:id', async (req, res) => {
+            const { id } = req.params;
+            if (!ObjectId.isValid(id)) {
+                return res.status(400).json({
+                    message: "Invalid ID"
+                });
+            }
+            const result = await tutorsCollection.findOne({
+                _id: new ObjectId(id)
+            });
+            res.json(result)
+        })
 
 
 
