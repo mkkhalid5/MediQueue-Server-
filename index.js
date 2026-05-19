@@ -26,48 +26,101 @@ async function run() {
     await client.connect();
     const db = client.db("mediqueue");
     const tutorsCollection = db.collection("tutors");
+    const bookingsCollection = db.collection("bookings");
 
+    //create tutor
     app.post('/tutors', async (req, res) => {
       const tutor = req.body;
-      console.log('req-tutor:',tutor);
+      console.log('req-tutor:', tutor);
       const result = await tutorsCollection.insertOne(tutor);
-      console.log('result:',result);
+      console.log('result:', result);
       res.send(result);
     });
 
+    //get tutors
     app.get('/tutorsAvailable', async (req, res) => {
       const tutors = await tutorsCollection.aggregate([
         {
-            $limit: 6
+          $limit: 6
         }
       ]).toArray();
       res.send(tutors);
     });
 
+    //get all tutors
     app.get('/tutors', async (req, res) => {
       const tutors = await tutorsCollection.find().toArray();
       res.send(tutors);
     });
 
+    //get tutor by id
     app.get('/tutors/:id', async (req, res) => {
-            const { id } = req.params;
-            if (!ObjectId.isValid(id)) {
-                return res.status(400).json({
-                    message: "Invalid ID"
-                });
-            }
-            const result = await tutorsCollection.findOne({
-                _id: new ObjectId(id)
-            });
-            res.json(result)
-        })
+      const { id } = req.params;
+      if (!ObjectId.isValid(id)) {
+        return res.status(400).json({
+          message: "Invalid ID"
+        });
+      }
+      const result = await tutorsCollection.findOne({
+        _id: new ObjectId(id)
+      });
+      res.json(result)
+    })
 
+    //create booking
+    app.post('/bookings', async (req, res) => {
+      const booking = req.body;
+      console.log('req-booking:', booking);
+
+      // check duplicate booking
+      const existingBooking = await bookingsCollection.findOne({
+        tutorId: booking.tutorId,
+        studentEmail: booking.studentEmail
+      });
+
+      // if already booked
+      if (existingBooking) {
+        return res.status(400).send({
+          success: false,
+          message: "You already booked this tutor"
+        });
+      }
+
+      const tutor = await tutorsCollection.findOne({
+        _id: new ObjectId(booking.tutorId)
+      });
+      if (tutor.slot <= 0) {
+        return res.status(400).send({
+          success: false,
+          message: "No slots available"
+        });
+      }
+      const result = await bookingsCollection.insertOne(booking);
+      const tutorId = booking.tutorId;
+      const updateResult = await tutorsCollection.updateOne(
+        { _id: new ObjectId(tutorId) },
+        {
+          $inc: {
+            slot: -1
+          }
+        }
+      );
+
+      console.log('result:', result);
+      res.send({
+        success: true,
+        result,
+        updateResult
+      });
+
+
+    });
 
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
-    
+
   }
 }
 run().catch(console.dir);
