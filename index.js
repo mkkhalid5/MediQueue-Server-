@@ -116,6 +116,36 @@ async function run() {
 
     });
 
+    //get bookings by student email
+    app.get('/bookings/:studentId', async (req, res) => {
+      const { studentId } = req.params;
+      const bookings = await bookingsCollection.find({ studentId:studentId }).toArray();
+
+      const tutorIds = bookings.map(booking => new ObjectId(booking.tutorId));
+      const tutors = await tutorsCollection.find({ _id: { $in: tutorIds } }).toArray();
+      res.send({ bookings, tutors });
+    });
+
+    app.delete('/bookings/:id', async (req, res) => {
+      const { id } = req.params;
+      const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+      const tutorId = booking.tutorId;
+      const deleteResult = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
+      const updateResult = await tutorsCollection.updateOne(  
+        { _id: new ObjectId(tutorId) },
+        {
+          $inc: {
+            slot: 1
+          }
+        }
+      );
+      res.send({
+        success: true,
+        deleteResult,
+        updateResult
+      });
+    });
+
 
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
