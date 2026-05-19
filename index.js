@@ -119,7 +119,7 @@ async function run() {
     //get bookings by student email
     app.get('/bookings/:studentId', async (req, res) => {
       const { studentId } = req.params;
-      const bookings = await bookingsCollection.find({ studentId:studentId }).toArray();
+      const bookings = await bookingsCollection.find({ studentId: studentId }).toArray();
 
       const tutorIds = bookings.map(booking => new ObjectId(booking.tutorId));
       const tutors = await tutorsCollection.find({ _id: { $in: tutorIds } }).toArray();
@@ -131,7 +131,7 @@ async function run() {
       const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
       const tutorId = booking.tutorId;
       const deleteResult = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
-      const updateResult = await tutorsCollection.updateOne(  
+      const updateResult = await tutorsCollection.updateOne(
         { _id: new ObjectId(tutorId) },
         {
           $inc: {
@@ -144,6 +144,20 @@ async function run() {
         deleteResult,
         updateResult
       });
+    });
+
+    app.get('/tutors/email/:userEmail', async (req, res) => {
+      const { userEmail } = req.params;
+      const tutors = await tutorsCollection.find({
+        userEmail
+      }).toArray();
+      res.send(tutors);
+    });
+
+    app.delete('/tutors/:id', async (req, res) => {
+      const { id } = req.params;
+      const result = await tutorsCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
     });
 
 
