@@ -49,7 +49,34 @@ async function run() {
 
     //get all tutors
     app.get('/tutors', async (req, res) => {
-      const tutors = await tutorsCollection.find().toArray();
+      const search = req.query.search || "";
+      const startDate = req.query.startDate;
+      const endDate = req.query.endDate;
+      let query = {};
+      if (search) {
+        query.$or = [
+          {
+            tutorName: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+          {
+            subject: {
+              $regex: search,
+              $options: "i",
+            },
+          },
+        ];
+      }
+
+      if (startDate && endDate) {
+        query.sessionDate = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        };
+      }
+      const tutors = await tutorsCollection.find(query).toArray();
       res.send(tutors);
     });
 
@@ -159,6 +186,9 @@ async function run() {
       const result = await tutorsCollection.deleteOne({ _id: new ObjectId(id) });
       res.send(result);
     });
+
+
+
 
 
     await client.db("admin").command({ ping: 1 });
