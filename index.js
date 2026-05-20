@@ -121,7 +121,7 @@ async function run() {
     })
 
     //create booking
-    app.post('/bookings',verifyToken, async (req, res) => {
+    app.post('/bookings', async (req, res) => {
       const booking = req.body;
       console.log('req-booking:', booking);
 
