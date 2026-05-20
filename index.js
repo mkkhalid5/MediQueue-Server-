@@ -76,8 +76,6 @@ async function run() {
     //get all tutors
     app.get('/tutors', async (req, res) => {
       const search = req.query.search || "";
-      const startDate = req.query.startDate;
-      const endDate = req.query.endDate;
       let query = {};
       if (search) {
         query.$or = [
