@@ -22,7 +22,7 @@ const client = new MongoClient(uri, {
   }
 });
 
-const jwks = createRemoteJWKSet(new URL(process.env.JWT_SECRET));
+const jwks = createRemoteJWKSet(new URL(`${process.env.JWT_SECRET}/api/auth/jwks`));
 
 const verifyToken = async (req, res, next) =>{
   const authHeader = await req.headers.authorization;
@@ -54,7 +54,7 @@ async function run() {
     const bookingsCollection = db.collection("bookings");
 
     //create tutor
-    app.post('/tutors',verifyToken, async (req, res) => {
+    app.post('/tutors', async (req, res) => {
       const tutor = req.body;
       console.log('req-tutor:', tutor);
       const result = await tutorsCollection.insertOne(tutor);
@@ -107,7 +107,7 @@ async function run() {
     });
 
     //get tutor by id
-    app.get('/tutors/:id', verifyToken, async (req, res) => {
+    app.get('/tutors/:id',verifyToken, async (req, res) => {
       const { id } = req.params;
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({
@@ -121,7 +121,7 @@ async function run() {
     })
 
     //create booking
-    app.post('/bookings', async (req, res) => {
+    app.post('/bookings',verifyToken, async (req, res) => {
       const booking = req.body;
       console.log('req-booking:', booking);
 
