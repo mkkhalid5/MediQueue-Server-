@@ -76,6 +76,8 @@ async function run() {
     //get all tutors
     app.get('/tutors', async (req, res) => {
       const search = req.query.search || "";
+      const startDate = req.query.startDate || "";
+      const endDate = req.query.endDate || "";
       let query = {};
       if (search) {
         query.$or = [
@@ -94,7 +96,19 @@ async function run() {
         ];
       }
 
-      const tutors = await tutorsCollection.find(query).toArray();
+      if (startDate || endDate) {
+        query.sessionDate = {};
+        if (startDate) {
+          query.sessionDate.$gte = startDate;
+        }
+        if (endDate) {
+          query.sessionDate.$lte = endDate;
+        }
+      }
+      console.log('query:', query);
+      const tutors = await tutorsCollection
+        .find(query)
+        .toArray();
       res.send(tutors);
     });
 
@@ -161,7 +175,7 @@ async function run() {
       const bookings = await bookingsCollection
         .find({ studentId })
         .toArray();
-      
+
       const currentDate = new Date();
       for (const booking of bookings) {
         if (booking.status !== 'cancel') {
@@ -173,7 +187,7 @@ async function run() {
           } else {
             newStatus = 'completed';
           }
-        await bookingsCollection.updateOne(
+          await bookingsCollection.updateOne(
             { _id: booking._id },
             {
               $set: {
