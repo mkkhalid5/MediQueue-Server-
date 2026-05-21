@@ -135,12 +135,7 @@ async function run() {
         studentEmail: booking.studentEmail
       });
 
-      if (existingBooking) {
-        return res.status(400).send({
-          success: false,
-          message: "You already booked this tutor"
-        });
-      }
+      
 
       const tutor = await tutorsCollection.findOne({
         _id: new ObjectId(booking.tutorId)
@@ -168,6 +163,12 @@ async function run() {
         result,
         updateResult
       });
+    });
+
+    app.delete('/bookings/:id', verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const result = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
+      res.send(result);
     });
 
     app.get('/bookings/:studentId', verifyToken, async (req, res) => {
@@ -217,6 +218,17 @@ async function run() {
         {
           $set: {
             status: 'cancel'
+          }
+        }
+      );
+      console.log(result,'rr');
+      const tutor = await bookingsCollection.findOne({ _id: new ObjectId(id) });
+      const tutorId = tutor?.tutorId;
+      const updateResult = await tutorsCollection.updateOne(
+        { _id: new ObjectId(tutorId) },
+        {
+          $inc: {
+            slot: +1
           }
         }
       );
