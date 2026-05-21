@@ -24,31 +24,31 @@ const client = new MongoClient(uri, {
 
 const jwks = createRemoteJWKSet(new URL(`${process.env.JWT_SECRET}/api/auth/jwks`));
 
-const verifyToken = async (req, res, next) =>{
+const verifyToken = async (req, res, next) => {
   const authHeader = await req.headers.authorization;
 
-  if(!authHeader){
-    return res.status(401).send({message: 'Unauthorized access'})
+  if (!authHeader) {
+    return res.status(401).send({ message: 'Unauthorized access' })
   }
   const token = await authHeader?.split(" ")[1];
-  if(!token){
-    return res.status(401).send({message: 'Unauthorized access'})
+  if (!token) {
+    return res.status(401).send({ message: 'Unauthorized access' })
   }
 
   try {
     const { payload } = await jwtVerify(token, jwks);
-    console.log(payload,'dd');
+    console.log(payload, 'dd');
     next();
   }
   catch (error) {
     console.log('error:', error);
-    return res.status(403).send({message: 'Forbidden access'})
+    return res.status(403).send({ message: 'Forbidden access' })
   }
 }
 
 async function run() {
   try {
-    //await client.connect();
+    await client.connect();
     const db = client.db("mediqueue");
     const tutorsCollection = db.collection("tutors");
     const bookingsCollection = db.collection("bookings");
@@ -99,7 +99,7 @@ async function run() {
     });
 
     //get tutor by id
-    app.get('/tutors/:id',verifyToken, async (req, res) => {
+    app.get('/tutors/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
       if (!ObjectId.isValid(id)) {
         return res.status(400).json({
@@ -112,18 +112,15 @@ async function run() {
       res.json(result)
     })
 
-    //create booking
     app.post('/bookings', async (req, res) => {
       const booking = req.body;
       console.log('req-booking:', booking);
 
-      // check duplicate booking
       const existingBooking = await bookingsCollection.findOne({
         tutorId: booking.tutorId,
         studentEmail: booking.studentEmail
       });
 
-      // if already booked
       if (existingBooking) {
         return res.status(400).send({
           success: false,
@@ -157,41 +154,62 @@ async function run() {
         result,
         updateResult
       });
-
-
     });
 
-    //get bookings by student email
-    app.get('/bookings/:studentId',verifyToken, async (req, res) => {
+    app.get('/bookings/:studentId', verifyToken, async (req, res) => {
       const { studentId } = req.params;
-      const bookings = await bookingsCollection.find({ studentId: studentId }).toArray();
+      const bookings = await bookingsCollection
+        .find({ studentId })
+        .toArray();
+      
+      const currentDate = new Date();
+      for (const booking of bookings) {
+        if (booking.status !== 'cancel') {
+          const bookingDate = new Date(booking.sessionDate);
+          console.log('bookingDate:', bookingDate, 'currentDate:', currentDate);
+          let newStatus;
+          if (bookingDate > currentDate) {
+            newStatus = 'upcoming';
+          } else {
+            newStatus = 'completed';
+          }
+        await bookingsCollection.updateOne(
+            { _id: booking._id },
+            {
+              $set: {
+                status: newStatus
+              }
+            }
+          );
+          booking.status = newStatus;
+        }
+      }
+      const tutorIds = bookings.map(
+        booking => new ObjectId(booking.tutorId)
+      );
+      const tutors = await tutorsCollection
+        .find({ _id: { $in: tutorIds } })
+        .toArray();
 
-      const tutorIds = bookings.map(booking => new ObjectId(booking.tutorId));
-      const tutors = await tutorsCollection.find({ _id: { $in: tutorIds } }).toArray();
       res.send({ bookings, tutors });
     });
 
-    app.delete('/bookings/:id', async (req, res) => {
+
+
+    app.patch('/cancel-booking/:id', verifyToken, async (req, res) => {
       const { id } = req.params;
-      const booking = await bookingsCollection.findOne({ _id: new ObjectId(id) });
-      const tutorId = booking.tutorId;
-      const deleteResult = await bookingsCollection.deleteOne({ _id: new ObjectId(id) });
-      const updateResult = await tutorsCollection.updateOne(
-        { _id: new ObjectId(tutorId) },
+      const result = await bookingsCollection.updateOne(
+        { _id: new ObjectId(id) },
         {
-          $inc: {
-            slot: 1
+          $set: {
+            status: 'cancel'
           }
         }
       );
-      res.send({
-        success: true,
-        deleteResult,
-        updateResult
-      });
+      res.send(result);
     });
 
-    app.get('/tutors/email/:userEmail',verifyToken, async (req, res) => {
+    app.get('/tutors/email/:userEmail', verifyToken, async (req, res) => {
       const { userEmail } = req.params;
       const tutors = await tutorsCollection.find({
         userEmail
@@ -209,8 +227,8 @@ async function run() {
 
 
 
-    //await client.db("admin").command({ ping: 1 });
-    //console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    await client.db("admin").command({ ping: 1 });
+    console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
 
   }
